@@ -15,7 +15,7 @@ FT_Pos rand_sign(void)
     return rand()%3 - 1;
 }
 
-#define SPRITE_CHAR_WIDTH (300 / 2)
+#define SPRITE_CHAR_WIDTH  (300 / 2)
 #define SPRITE_CHAR_HEIGHT (380 / 2)
 #define VARIANTS_COUNT 3
 #define ATLAS_WIDTH (SPRITE_CHAR_WIDTH*11)
@@ -24,8 +24,20 @@ FT_Pos rand_sign(void)
 uint32_t atlas[ATLAS_WIDTH*ATLAS_HEIGHT] = {0};
 char symbols[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':' };
 
-int main()
+#define shift(xs, xs_sz) (assert((xs_sz) > 0), (xs_sz)--, *(xs)++)
+
+int main(int argc, char **argv)
 {
+    const char *program_name = shift(argv, argc);
+
+    if (argc <= 0) {
+        fprintf(stderr, "Usage: %s <input.ttf>\n", program_name);
+        fprintf(stderr, "ERROR: no input ttf file is provided\n");
+        return 1;
+    }
+
+    const char *font_file_path = shift(argv, argc);
+
     srand(time(0));
     FT_Library library = {0};
     FT_Error error = FT_Init_FreeType(&library);
@@ -33,9 +45,6 @@ int main()
         fprintf(stderr, "ERROR: Could not initialize FreeType2 library\n");
         return 1;
     }
-
-    // const char *font_file_path = "ComicMono-Bold.ttf";
-    const char *font_file_path = "iosevka-bold.ttf";
 
     FT_Face face = {0};
     error = FT_New_Face(library, font_file_path, 0, &face);
@@ -47,7 +56,6 @@ int main()
         return 1;
     }
 
-    // FT_Set_Pixel_Sizes(face, 0, 500);
     FT_Set_Pixel_Sizes(face, SPRITE_CHAR_WIDTH, SPRITE_CHAR_HEIGHT);
 
     for (size_t variant = 0; variant < VARIANTS_COUNT; ++variant) {
@@ -60,9 +68,10 @@ int main()
 
             for (size_t i = 0; i < face->glyph->outline.n_points; ++i) {
                 FT_Vector p = face->glyph->outline.points[i];
-                int fuck_factor = 1;
-                p.x = p.x + rand_sign()*64*fuck_factor;
-                p.y = p.y + rand_sign()*64*fuck_factor;
+                int a = 12;
+                int b = 3;
+                p.x = p.x + rand_sign()*64*a/b;
+                p.y = p.y + rand_sign()*64*a/b;
                 face->glyph->outline.points[i] = p;
             }
 
@@ -89,25 +98,12 @@ int main()
         }
     }
 
-    stbi_write_png("digits.png", ATLAS_WIDTH, ATLAS_HEIGHT, 4, atlas, ATLAS_WIDTH*sizeof(atlas[0]));
-
-
-  // FT_Set_Char_Size( FT_Face     face,
-  //                   FT_F26Dot6  char_width,
-  //                   FT_F26Dot6  char_height,
-  //                   FT_UInt     horz_resolution,
-  //                   FT_UInt     vert_resolution );
-
-  // FT_Outline_Copy( const FT_Outline*  source,
-  //                  FT_Outline        *target );
-
-    // error = FT_Outline_Get_Bitmap(library, &face->glyph->outline, &abitmap);
-    // if (error) {
-    //     fprintf(stderr, "ERROR: could not render the glyph\n");
-    //     return 1;
-    // }
-
-    printf("OKI\n");
+    const char *digits_path = "digits.png";
+    if (!stbi_write_png(digits_path, ATLAS_WIDTH, ATLAS_HEIGHT, 4, atlas, ATLAS_WIDTH*sizeof(atlas[0]))) {
+        fprintf(stderr, "ERROR: could not generated %s\n", digits_path);
+        return 1;
+    }
+    printf("Generated %s\n", digits_path);
 
     return 0;
 }

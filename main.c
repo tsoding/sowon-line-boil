@@ -9,8 +9,13 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+static inline float rand_float(void)
+{
+    return (float)rand()/RAND_MAX;
+}
+
 // -1 0 1
-FT_Pos rand_sign(void)
+static inline FT_Pos rand_sign(void)
 {
     return rand()%3 - 1;
 }
@@ -68,11 +73,14 @@ int main(int argc, char **argv)
 
             for (size_t i = 0; i < face->glyph->outline.n_points; ++i) {
                 FT_Vector p = face->glyph->outline.points[i];
-                int a = 12;
-                int b = 3;
-                p.x = p.x + rand_sign()*64*a/b;
-                p.y = p.y + rand_sign()*64*a/b;
-                face->glyph->outline.points[i] = p;
+                // > If bit~0 is unset, the point is 'off' the curve, i.e., a Bezier
+                // > control point, while it is 'on' if set.
+                if (!(face->glyph->outline.tags[i]&1)) {
+                    float factor = 2.f;
+                    p.x = p.x + rand_sign()*64*rand_float()*factor;
+                    p.y = p.y + rand_sign()*64*rand_float()*factor;
+                    face->glyph->outline.points[i] = p;
+                }
             }
 
             error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);

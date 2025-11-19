@@ -29,6 +29,7 @@ static inline FT_Pos rand_sign(void)
 uint32_t atlas[ATLAS_WIDTH*ATLAS_HEIGHT] = {0};
 char symbols[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':' };
 
+#define ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
 #define shift(xs, xs_sz) (assert((xs_sz) > 0), (xs_sz)--, *(xs)++)
 
 int main(int argc, char **argv)
@@ -64,23 +65,33 @@ int main(int argc, char **argv)
     FT_Set_Pixel_Sizes(face, SPRITE_CHAR_WIDTH, SPRITE_CHAR_HEIGHT);
 
     for (size_t variant = 0; variant < VARIANTS_COUNT; ++variant) {
-        for (size_t symbol = 0; symbol < sizeof(symbols); ++symbol) {
+        for (size_t symbol = 0; symbol < ARRAY_LEN(symbols); ++symbol) {
             error = FT_Load_Char(face, symbols[symbol], FT_LOAD_DEFAULT);
             if (error) {
                 fprintf(stderr, "ERROR: could not load glyph\n");
                 return 1;
             }
 
-            for (size_t i = 0; i < face->glyph->outline.n_points; ++i) {
-                FT_Vector p = face->glyph->outline.points[i];
-                // > If bit~0 is unset, the point is 'off' the curve, i.e., a Bezier
-                // > control point, while it is 'on' if set.
-                if (!(face->glyph->outline.tags[i]&1)) {
-                    float factor = 2.f;
-                    p.x = p.x + rand_sign()*64*rand_float()*factor;
-                    p.y = p.y + rand_sign()*64*rand_float()*factor;
-                    face->glyph->outline.points[i] = p;
+            size_t contour_start = 0;
+            for (int i = 0; i < face->glyph->outline.n_contours; ++i) {
+                float contour_factor = 2.f;
+                FT_Vector g;
+                g.x = rand_sign()*64*rand_float()*contour_factor;
+                g.y = rand_sign()*64*rand_float()*contour_factor;
+                for (size_t j = contour_start; j <= face->glyph->outline.contours[i]; ++j) {
+                    FT_Vector p = face->glyph->outline.points[j];
+                    p.x += g.x;
+                    p.y += g.y;
+                    // > If bit~0 is unset, the point is 'off' the curve, i.e., a Bezier
+                    // > control point, while it is 'on' if set.
+                    if (!(face->glyph->outline.tags[j]&1)) {
+                        float control_factor = 1.f;
+                        p.x += rand_sign()*64*rand_float()*control_factor;
+                        p.y += rand_sign()*64*rand_float()*control_factor;
+                    }
+                    face->glyph->outline.points[j] = p;
                 }
+                contour_start = face->glyph->outline.contours[i] + 1;
             }
 
             error = FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
@@ -93,12 +104,20 @@ int main(int argc, char **argv)
             assert(face->glyph->bitmap.width <= SPRITE_CHAR_WIDTH);
             assert(face->glyph->bitmap.rows <= SPRITE_CHAR_HEIGHT);
 
-            size_t atlas_x = symbol*SPRITE_CHAR_WIDTH + SPRITE_CHAR_WIDTH/2 - face->glyph->bitmap.width/2;
-            size_t atlas_y = variant*SPRITE_CHAR_HEIGHT + SPRITE_CHAR_HEIGHT/2 - face->glyph->bitmap.rows/2;
+            float atlas_factor = 4.;
+            size_t gx = rand_sign()*rand_float()*atlas_factor;
+            size_t gy = rand_sign()*rand_float()*atlas_factor;
+            size_t atlas_x = gx + symbol*SPRITE_CHAR_WIDTH + SPRITE_CHAR_WIDTH/2 - face->glyph->bitmap.width/2;
+            size_t atlas_y = gy + variant*SPRITE_CHAR_HEIGHT + SPRITE_CHAR_HEIGHT/2 - face->glyph->bitmap.rows/2;
+
             for (size_t y = 0; y < face->glyph->bitmap.rows; ++y) {
                 for (size_t x = 0; x < face->glyph->bitmap.width; ++x) {
                     size_t i = (y + atlas_y)*ATLAS_WIDTH + (x + atlas_x);
+                    if (i >= ARRAY_LEN(atlas)) continue;
+
                     size_t j = y*face->glyph->bitmap.pitch + x;
+                    if (j >= face->glyph->bitmap.width*face->glyph->bitmap.rows) continue;
+
                     uint8_t c = face->glyph->bitmap.buffer[j];
                     atlas[i] = (c<<(3*8))|0x00FFFFFF;
                 }

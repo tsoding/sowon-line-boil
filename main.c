@@ -14,12 +14,6 @@ static inline float rand_float(void)
     return (float)rand()/RAND_MAX;
 }
 
-// -1 0 1
-static inline FT_Pos rand_sign(void)
-{
-    return rand()%3 - 1;
-}
-
 #define SPRITE_CHAR_WIDTH  (300 / 2)
 #define SPRITE_CHAR_HEIGHT (380 / 2)
 #define VARIANTS_COUNT 3
@@ -31,6 +25,15 @@ char symbols[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':' };
 
 #define ARRAY_LEN(array) (sizeof(array)/sizeof(array[0]))
 #define shift(xs, xs_sz) (assert((xs_sz) > 0), (xs_sz)--, *(xs)++)
+
+static inline FT_Vector rand_vec(float max_len)
+{
+    float angle = rand_float()*2*M_PI;
+    FT_Vector result;
+    result.x = cosf(angle)*64*rand_float()*max_len;
+    result.y = sinf(angle)*64*rand_float()*max_len;
+    return result;
+}
 
 int main(int argc, char **argv)
 {
@@ -74,10 +77,7 @@ int main(int argc, char **argv)
 
             size_t contour_start = 0;
             for (int i = 0; i < face->glyph->outline.n_contours; ++i) {
-                float contour_factor = 2.f;
-                FT_Vector g;
-                g.x = rand_sign()*64*rand_float()*contour_factor;
-                g.y = rand_sign()*64*rand_float()*contour_factor;
+                FT_Vector g = rand_vec(2.f);
                 for (size_t j = contour_start; j <= face->glyph->outline.contours[i]; ++j) {
                     FT_Vector p = face->glyph->outline.points[j];
                     p.x += g.x;
@@ -85,9 +85,9 @@ int main(int argc, char **argv)
                     // > If bit~0 is unset, the point is 'off' the curve, i.e., a Bezier
                     // > control point, while it is 'on' if set.
                     if (!(face->glyph->outline.tags[j]&1)) {
-                        float control_factor = 1.f;
-                        p.x += rand_sign()*64*rand_float()*control_factor;
-                        p.y += rand_sign()*64*rand_float()*control_factor;
+                        FT_Vector c = rand_vec(1.f);
+                        p.x += c.x;
+                        p.y += c.y;
                     }
                     face->glyph->outline.points[j] = p;
                 }
@@ -104,11 +104,9 @@ int main(int argc, char **argv)
             assert(face->glyph->bitmap.width <= SPRITE_CHAR_WIDTH);
             assert(face->glyph->bitmap.rows <= SPRITE_CHAR_HEIGHT);
 
-            float atlas_factor = 4.;
-            size_t gx = rand_sign()*rand_float()*atlas_factor;
-            size_t gy = rand_sign()*rand_float()*atlas_factor;
-            size_t atlas_x = gx + symbol*SPRITE_CHAR_WIDTH + SPRITE_CHAR_WIDTH/2 - face->glyph->bitmap.width/2;
-            size_t atlas_y = gy + variant*SPRITE_CHAR_HEIGHT + SPRITE_CHAR_HEIGHT/2 - face->glyph->bitmap.rows/2;
+            FT_Vector g = rand_vec(4.f);
+            size_t atlas_x = g.x/64 + symbol*SPRITE_CHAR_WIDTH + SPRITE_CHAR_WIDTH/2 - face->glyph->bitmap.width/2;
+            size_t atlas_y = g.y/64 + variant*SPRITE_CHAR_HEIGHT + SPRITE_CHAR_HEIGHT/2 - face->glyph->bitmap.rows/2;
 
             for (size_t y = 0; y < face->glyph->bitmap.rows; ++y) {
                 for (size_t x = 0; x < face->glyph->bitmap.width; ++x) {

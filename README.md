@@ -2,8 +2,6 @@
 
 Implemented for [Sowon](https://github.com/tsoding/sowon), but I'm not sure how to integrate it yet. An on going experiment.
 
-![demo](./demo.gif)
-
 ## Dependencies
 
 - [FreeType](https://freetype.org/)
